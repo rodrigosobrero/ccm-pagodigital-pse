@@ -1,161 +1,22 @@
-/**
- * @todo Chequear validación de teléfono
- */
-
 import './scss/app.scss';
 
 let app = new Object();
 
 app.config = {
-  languaje: 'es',
-  country: 'co',
   // source: window.base_url + 'static/pagodigital/data/co.json'
-  source: 'data/co.json'
-};
-
-app.creditCard = new Cleave('#cc_num', {
-  creditCard: true,
-  creditCardStrictMode: false,
-  onCreditCardTypeChanged: type => {
-    let creditCardInput = $('#cc_num');
-
-    app.creditCard = {};
-
-    switch (type) {
-      case 'unknown':
-        creditCardInput.removeClass('amex diners mastercard visa');
-        break;
-      case 'amex':
-        creditCardInput.addClass('amex');
-        app.creditCard = {
-          number_size: 15 + 2,
-          franchise_name: 'amex',
-          franchise_id: 30
-        };
-        app.cc_cvv.properties.blocks = [4]
-        break;
-      case 'diners':
-        creditCardInput.addClass('diners');
-        app.creditCard = {
-          number_size: 14 + 2,
-          franchise_name: 'diners',
-          franchise_id: 34
-        };
-        app.cc_cvv.properties.blocks = [3]
-        break;
-      case 'mastercard':
-        creditCardInput.addClass('mastercard');
-        app.creditCard = {
-          number_size: 16 + 3,
-          franchise_name: 'mastercard',
-          franchise_id: 91
-        };
-        app.cc_cvv.properties.blocks = [3]
-        break;
-      case 'visa':
-        creditCardInput.addClass('visa');
-        app.creditCard = {
-          number_size: 16 + 3,
-          franchise_name: 'visa',
-          franchise_id: 90
-        };
-        app.cc_cvv.properties.blocks = [3]
-        break;
-    }
-  }
-});
-
-app.expirationNumber = new Cleave('#cc_expiration', {
-  date: true,
-  datePattern: ['m', 'y'],
-  dateMin: moment().format('YYYY-MM-DD'),
-  onValueChanged: element => {
-    if (element.target.value.length > 3) {
-      let year = element.target.value.split('/');
-
-      if (year[1] < moment().format('YY')) {
-        console.log('Error en fecha de expiración');
-      }
-    }
-  }
-});
-
-app.cc_cvv = new Cleave('#cc_cvv', {
-  blocks: [3]
-});
-
-app.autoComplete = prm => {
-  $.ajax({
-    url: prm.source,
-    success: data => {
-      typeAhead(data);
-    }
-  });
-
-  function typeAhead(data) {
-    let cityList;
-
-    $.each(data, (_index, element) => {
-      if (prm.city == element.departamento) {
-        cityList = element.ciudades;
-      }
-    });
-
-    if (cityList.length == 1) {
-      $(prm.input)
-        .val(cityList)
-        .attr('readonly', true)
-        .addClass('pd-control-valid')
-        .removeClass('pd-control-invalid');
-    } else {
-      let engine = new Bloodhound({
-        local: cityList,
-        queryTokenizer: Bloodhound.tokenizers.whitespace,
-        datumTokenizer: Bloodhound.tokenizers.whitespace
-      });
-
-      engine
-        .clear()
-        .clearPrefetchCache()
-        .clearRemoteCache()
-        .initialize(true);
-
-      $(prm.input)
-        .typeahead(
-          {
-            minLength: 2,
-            highlight: true
-          },
-          {
-            name: 'cities',
-            source: engine
-          }
-        )
-        .on('change blur', function () {
-          let match = false;
-
-          $.each(engine.index.datums, function (index) {
-            if ($(prm.input).val() == index) {
-              match = true;
-            }
-          });
-
-          if (!match) {
-            $(this)
-              .removeClass('pd-control-valid')
-              .val('');
-          } else {
-            $(this).addClass('pd-control-valid');
-          }
-        });
-
-      $(prm.input)
-        .on('typeahead:open', () => {
-          $('.tt-hint, .tt-input').attr('autocomplete', 'nope');
-        });
-    }
-  }
-};
+  source: 'data/co.json',
+  documents_type: [
+    { 'CC': 'Cédula de Ciudadanía' },
+    { 'CE': 'Cédula de Extranjería' },
+    { 'CEL': 'Línea Móvil' },
+    { 'DE': 'Documento de Identificación Extranjero' },
+    { 'IDC': 'Identificador Único de Cliente' },
+    { 'NIT': 'NIT' },
+    { 'PP': 'Pasaporte' },
+    { 'RC': 'Registro Civil' },
+    { 'TI': 'Tarjeta de Identidad' }
+  ]
+}
 
 app.dropDown = prm => {
   let input = $(prm.input);
@@ -176,12 +37,20 @@ app.dropDown = prm => {
               .remove();
 
             statesList.push(element.ciudades);
+
             $.each(element.ciudades, (_index, element) => {
               input.append(`<option value='${element}'>${element}</option>`);
             });
 
             $('#city').focus();
           }
+        });
+      } else if (field == 'id') {
+        $.each(app.config.documents_type, function () {
+          let key = Object.keys(this)[0];
+          let value = this[key];
+
+          input.append(`<option value='${key}'>${value}</option>`);
         });
       } else {
         $.each(resp, (_index, element) => {
@@ -220,42 +89,8 @@ app.formValidation = _event => {
       email: true,
       presence: true
     },
-    cc_num: {
-      presence: true,
-      length: value => {
-        if (value) {
-          if (value.length > 15) {
-            return { is: app.creditCard.number_size };
-          } else {
-            return { is: 14 };
-          }
-        }
-      }
-    },
-    cc_expiration: {
-      presence: true,
-      datetime: {
-        dateOnly: false,
-        earliest: moment().utc()
-      }
-    },
-    cc_cvv: {
-      presence: true,
-      numericality: {
-        onlyInteger: true,
-        strict: true
-      },
-      length: value => {
-        if (value && app.creditCard.number_size) {
-          if (app.creditCard.franchise_name == 'amex') {
-            return { is: 4 };
-          } else {
-            return { is: 3 };
-          }
-        } else {
-          return false;
-        }
-      }
+    type_card: {
+      presence: true
     },
     id_card: {
       presence: true,
@@ -272,11 +107,7 @@ app.formValidation = _event => {
       presence: true
     },
     city: {
-      presence: true,
-      length: {
-        minimum: 2,
-        maximum: 70
-      }
+      presence: true
     },
     address: {
       presence: true
@@ -340,7 +171,6 @@ app.formValidation = _event => {
       cc_exp_year: expiration[1],
       user_id: user_id,
       token: token,
-      cc_number: $('#cc_num').val().replace(/ /g, '')
       // cc_number: app.creditCard.getRawValue()
     };
 
@@ -364,14 +194,26 @@ $(document).ready(() => {
     field: 'departamento'
   });
 
-  $('#state').on('change', function () {
+  app.dropDown({
+    input: '#type_card',
+    source: app.config.source,
+    field: 'id'
+  });
+
+  $('#type_card').on('change', function () {
     $(this).addClass('pd-control-valid');
 
-    // app.autoComplete({
-    //   city: $(this).val(),
-    //   input: '#city',
-    //   source: app.config.source
-    // });
+    $('#id_card')
+      .val('')
+      .removeAttr('disabled')
+      .focus();
+
+    $('#id_card')
+      .attr('placeholder', 'Número de ' + $(this).children('option:selected').text());
+  });
+
+  $('#state').on('change', function () {
+    $(this).addClass('pd-control-valid');
 
     app.dropDown({
       input: '#city',
@@ -382,7 +224,7 @@ $(document).ready(() => {
 
     $('#city')
       .val('')
-      .removeAttr('readonly');
+      .removeAttr('disabled');
   });
 
   $('#payment_form').submit(e => {

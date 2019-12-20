@@ -66,17 +66,6 @@ app.dropDown = prm => {
 };
 
 app.formValidation = _event => {
-  validate.extend(validate.validators.datetime, {
-    parse: function (value) {
-      return moment(value, 'MM/YY').utc();
-    },
-    format: function (value) {
-      return moment()
-        .utc(value)
-        .format('MM/YY');
-    }
-  });
-
   let constraints = {
     name: {
       presence: true,
@@ -153,39 +142,9 @@ app.formValidation = _event => {
   if (errors) {
     showErrors(form, errors);
   } else {
-    $('button').attr('disabled', true);
-
-    if (values.cc_expiration) {
-      var expiration = values.cc_expiration.split('/');
-    }
-
-    let current_url = window.location.href;
-    let oUrl = new URL(current_url);
-    let token = oUrl.searchParams.get('token');
-    let user_id = oUrl.searchParams.get('user_id');
-
-    let customParams = {
-      cc_fr_name: app.creditCard.franchise_name,
-      cc_fr_number: app.creditCard.franchise_id,
-      cc_exp_month: expiration[0],
-      cc_exp_year: expiration[1],
-      user_id: user_id,
-      token: token,
-      // cc_number: app.creditCard.getRawValue()
-    };
-
-    $.each(customParams, (index, element) => {
-      $('#' + index).val(element);
-    });
-
-    $.ajax({
-      type: 'POST',
-      data: $('#payment_form').serialize()
-    }).done(resp => {
-      document.write(resp.toString().replace(/ /g, ''));
-    });
+    return
   }
-};
+}
 
 $(document).ready(() => {
   app.dropDown({
